@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      #floatingButton, #timeButton, #multiplierButton, #startButton, #storeButton {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
+        padding: 10px 20px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: opacity 0.2s;
+      }
+      #multiplierButton{
+        left: 20px;
+        right: auto;
+        //right: 100px;
+      }
+      #timeButton {
+        bottom: 60px;
+      }
+      #startButton {
+        left: 20px;
+        right: auto;
+        bottom: 60px;
+      }
+      #storeButton {
+        bottom: 100px;
+      }
+      .pressed {
+        opacity: 0.5;
+      }
+      .cellValue {
+        font-size: 20px;
+        font-weight: bold;
+        margin-top: 20px;
+      }
+      .cellPace {
+        font-size: 20px;
+        font-weight: bold;
+        display: inline-block;
+        margin-right: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="floatingButton" onclick="logTime()">Log Time</button>
+    <button id="timeButton" onclick="showCurrentDuration()">Duration</button>
+    <button id="multiplierButton" onclick="calculateMultiplier()">Adjust Speed</button>
+    <button id="startButton" onclick="showStartTime()">Start</button>
+    <button id="storeButton" onclick="storeTime()">Store</button>
+
+    <div id="level" class="cellPace">Level: ...</div>
+    <div id="handicap" class="cellPace">Delay: ...</div>
+
+    <div id="percentProgress" class="cellValue">Progress: 0% Max: 0%</div>
+
+    <div id="currentDuration" class="cellValue">Segment Duration: 00:00:00</div>
+    <div id="timeLeft" class="cellValue">Time Left: 00:00:00</div>
+    <div id="totalTimeLeft" class="cellValue">Total Time Left: 00:00:00</div>
+    <div id="cellValueP2" class="cellValue">00:00:00</div>
+    <div>Progress Minimum</div>
+    <div id="cellValueL2" class="cellValue">00:00:00</div>
+    <div>Progress Baseline</div>
+    <div id="cellValueQ2" class="cellValue">00:00:00</div>
+    <div>Pace Minimum</div>
+    <div id="cellValueN2" class="cellValue">00:00:00</div>
+    <div>Pace Baseline</div>
+
+    <div id="cellLoading" class="cellValue">Loading</div>
+
+    <script>
+      function logTime() {
+        showLoading();
+        pressButton('floatingButton');
+        
+        var currentDurationDiv = document.getElementById('currentDuration');
+        currentDurationDiv.textContent = `Segment Duration: 00:00:00`;
+
+        var timeLeftDiv = document.getElementById('timeLeft');
+        timeLeftDiv.textContent = 'Time Left: 00:00:00';
+        timeLeftDiv.style.color = 'black';
+
+        var totalTimeLeftDiv = document.getElementById('totalTimeLeft');
+        totalTimeLeftDiv.textContent = 'Total Time Left: 00:00:00';
+        totalTimeLeftDiv.style.color = 'black';
+        
+        google.script.run.withSuccessHandler(showComplete).logTime();
+      }
+
+      function showCurrentDuration() {
+        showLoading();
+        pressButton('timeButton');
+        google.script.run.withSuccessHandler(displayCurrentDuration).calculateCurrentDuration();
+        updateCellValues();
+      }
+
+      function showStartTime(){
+        showLoading();
+        pressButton('startButton');
+        google.script.run.withSuccessHandler(showComplete).startTime();
+      }
+
+      function storeTime(){
+        showLoading();
+        pressButton('storeButton');
+        google.script.run.withSuccessHandler(showPaused).storeTimeSegment();
+      }
+
+      function showLoading(){
+        var cellValueDiv = document.getElementById('cellLoading');
+        cellValueDiv.textContent = "Loading";
+        cellValueDiv.style.color = 'red';
+      }
+
+      function showComplete(){
+        var cellValueDiv = document.getElementById('cellLoading');
+        cellValueDiv.textContent = "Ready";
+        cellValueDiv.style.color = 'green';
+      }
+
+      function showPaused(){
+        var cellValueDiv = document.getElementById('cellLoading');
+        cellValueDiv.textContent = "Paused";
+        cellValueDiv.style.color = 'orange';
+      }
+
+      function calculateMultiplier(){
+        pressButton('multiplierButton');
+        showLoading();
+        google.script.run.withSuccessHandler(displayStats).calculateMultiplier();
+      }
+
+      function displayCurrentDuration(duration) {
+        var currentDurationDiv = document.getElementById('currentDuration');
+        currentDurationDiv.textContent = 'Segment Duration: ' + duration[0];
+
+        var timeLeftDiv = document.getElementById('timeLeft');
+        timeLeftDiv.textContent = 'Time Left: ' + duration[1];
+
+        if (duration[1].startsWith('-')) {
+          timeLeftDiv.style.color = 'red';
+        } else {
+          timeLeftDiv.style.color = 'green';
+        }
+
+        var totalTimeLeftDiv = document.getElementById('totalTimeLeft');
+        totalTimeLeftDiv.textContent = 'Total Time Left: ' + duration[2];
+
+        if (duration[2].startsWith('-')) {
+          totalTimeLeftDiv.style.color = 'red';
+        } else {
+          totalTimeLeftDiv.style.color = 'green';
+        }
+
+        var currentProgress = document.getElementById('percentProgress');
+        currentProgress.textContent = 'Progress: ' + duration[3] + '% Max: ' + duration[4] + '%';
+
+        showComplete();
+      }
+
+      function updateCellValues() {
+        google.script.run.withSuccessHandler(displayCellValues).fetchCellValues();
+      }
+
+      function startGame(){
+        showLoading();
+        google.script.run.withSuccessHandler(displayStats).fetchStats();
+      }
+
+      function displayStats(stats){
+        var cellValueLevel = document.getElementById('level');
+        var cellValueHandicap = document.getElementById('handicap');
+
+        cellValueLevel.textContent = "Level: " + stats[0];
+        cellValueHandicap.textContent = "Delay: " + stats[1];
+
+        showComplete();
+      }
+
+      function displayCellValues(values) {
+        var cellValueDivP2 = document.getElementById('cellValueP2');
+        var cellValueDivL2 = document.getElementById('cellValueL2');
+        var cellValueDivQ2 = document.getElementById('cellValueQ2');
+        var cellValueDivN2 = document.getElementById('cellValueN2');
+
+        cellValueDivP2.textContent = values.P2;
+        cellValueDivL2.textContent = values.L2;
+        cellValueDivQ2.textContent = values.Q2;
+        cellValueDivN2.textContent = values.N2;
+
+        if (values.P2.startsWith('-')) {
+          cellValueDivP2.style.color = 'red';
+        } else {
+          cellValueDivP2.style.color = 'green';
+        }
+
+        if (values.L2.startsWith('-')) {
+          cellValueDivL2.style.color = 'red';
+        } else {
+          cellValueDivL2.style.color = 'green';
+        }
+
+        if (values.Q2.startsWith('-')) {
+          cellValueDivQ2.style.color = 'red';
+        } else {
+          cellValueDivQ2.style.color = 'green';
+        }
+
+        if (values.N2.startsWith('-')) {
+          cellValueDivN2.style.color = 'red';
+        } else {
+          cellValueDivN2.style.color = 'green';
+        }
+      }
+
+      function pressButton(buttonId) {
+        var button = document.getElementById(buttonId);
+        button.classList.add('pressed');
+        setTimeout(function() {
+          button.classList.remove('pressed');
+        }, 200);
+      }
+
+      // Initial call to fetch and display the cell values when the sidebar is opened
+      window.onload = startGame;
+    </script>
+  </body>
+</html>
